@@ -2,31 +2,39 @@ import { useEffect, useRef, useState } from 'react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 
-const STORAGE_KEY = 'muro-me-encanta'
+export type Reaction = 'love' | 'like'
+type Reactions = Record<Reaction, number[]>
 
-function loadMine(): number[] {
+const STORAGE_KEY = 'muro-reacciones'
+const EMPTY: Reactions = { love: [], like: [] }
+
+function onlyNumbers(value: unknown): number[] {
+  return Array.isArray(value) ? value.filter((n) => typeof n === 'number') : []
+}
+
+function loadMine(): Reactions {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
-    return Array.isArray(saved) ? saved.filter((n) => typeof n === 'number') : []
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
+    return { love: onlyNumbers(saved?.love), like: onlyNumbers(saved?.like) }
   } catch {
-    return []
+    return EMPTY
   }
 }
 
-function saveMine(ids: number[]) {
+function saveMine(r: Reactions) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(ids))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(r))
   } catch {
     // Sin almacenamiento (ventana privada): igual funciona mientras la página esté abierta.
   }
 }
 
-// "Me encanta" en vivo, sin tabla: cada persona conectada anuncia qué ideas le encantan
-// (igual que el contador de conectados). Solo cuentan las personas que están en la página.
-// Los tuyos se recuerdan en este navegador para que vuelvan a contar cuando entres.
+// "Me encanta" y "Like" en vivo, sin tabla: cada persona conectada anuncia qué ideas le
+// gustan (igual que el contador de conectados). Solo cuentan las personas que están en la
+// página. Los tuyos se recuerdan en este navegador para que vuelvan a contar cuando entres.
 export function useLikes(userId: string) {
-  const [mine, setMine] = useState<number[]>(loadMine)
-  const [others, setOthers] = useState<Map<string, number[]>>(new Map())
+  const [mine, setMine] = useState<Reactions>(loadMine)
+  const [others, setOthers] = useState<Map<string, Reactions>>(new Map())
   const channelRef = useRef<RealtimeChannel | null>(null)
   const mineRef = useRef(mine)
   mineRef.current = mine
@@ -35,25 +43,29 @@ export function useLikes(userId: string) {
     if (!supabase) return
     const client = supabase
 
-    const channel = client.channel('me-encanta', {
+    const channel = client.channel('reacciones', {
       config: { presence: { key: userId } },
     })
     channelRef.current = channel
 
     channel
       .on('presence', { event: 'sync' }, () => {
-        const next = new Map<string, number[]>()
-        for (const [key, metas] of Object.entries(channel.presenceState<{ liked: number[] }>())) {
+        const next = new Map<string, Reactions>()
+        for (const [key, metas] of Object.entries(channel.presenceState<Partial<Reactions>>())) {
           if (key === userId) continue
           // Una persona con varias pestañas cuenta una sola vez por idea.
-          const ids = new Set<number>()
-          for (const m of metas) for (const id of m.liked ?? []) ids.add(id)
-          next.set(key, [...ids])
+          const love = new Set<number>()
+          const like = new Set<number>()
+          for (const m of metas) {
+            for (const id of onlyNumbers(m.love)) love.add(id)
+            for (const id of onlyNumbers(m.like)) like.add(id)
+          }
+          next.set(key, { love: [...love], like: [...like] })
         }
         setOthers(next)
       })
       .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') await channel.track({ liked: mineRef.current })
+        if (status === 'SUBSCRIBED') await channel.track(mineRef.current)
       })
 
     return () => {
@@ -62,22 +74,26 @@ export function useLikes(userId: string) {
     }
   }, [userId])
 
-  function countFor(ideaId: number) {
-    let n = mine.includes(ideaId) ? 1 : 0
-    for (const ids of others.values()) if (ids.includes(ideaId)) n++
+  function countFor(ideaId: number, reaction: Reaction) {
+    let n = mine[reaction].includes(ideaId) ? 1 : 0
+    for (const r of others.values()) if (r[reaction].includes(ideaId)) n++
     return n
   }
 
-  function likedByMe(ideaId: number) {
-    return mine.includes(ideaId)
+  function reactedByMe(ideaId: number, reaction: Reaction) {
+    return mine[reaction].includes(ideaId)
   }
 
-  function toggleLike(ideaId: number) {
-    const next = mine.includes(ideaId) ? mine.filter((id) => id !== ideaId) : [...mine, ideaId]
+  function toggle(ideaId: number, reaction: Reaction) {
+    const list = mine[reaction]
+    const next = {
+      ...mine,
+      [reaction]: list.includes(ideaId) ? list.filter((id) => id !== ideaId) : [...list, ideaId],
+    }
     setMine(next)
     saveMine(next)
-    channelRef.current?.track({ liked: next })
+    channelRef.current?.track(next)
   }
 
-  return { countFor, likedByMe, toggleLike }
+  return { countFor, reactedByMe, toggle }
 }

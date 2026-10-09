@@ -158,19 +158,19 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--acc
 .idea > .actions { margin-top: 10px; }
 .actions { display: flex; gap: 8px; }
 .actions button { padding: 5px 12px; font-size: 0.85rem; }
-.actions .like { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; }
-.actions .like.liked { border-color: var(--accent); color: var(--accent); font-weight: 600; }
-.like-count {
-  min-width: 20px;
-  padding: 0 6px;
+.reactions { display: flex; gap: 6px; margin-right: auto; }
+.actions .reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
   border-radius: 999px;
-  background: var(--border);
-  color: var(--text);
-  font-size: 0.75rem;
-  font-variant-numeric: tabular-nums;
-  text-align: center;
+  font-size: 0.85rem;
+  line-height: 1.4;
 }
-.like.liked .like-count { background: var(--accent); color: var(--accent-text); }
+.actions .reaction.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, transparent); }
+.reaction-count { font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.reaction.active .reaction-count { color: var(--accent); }
 
 @media (max-width: 520px) {
   .brand-name, .me-name { display: none; }

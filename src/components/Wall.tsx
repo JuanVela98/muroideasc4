@@ -11,7 +11,7 @@ export function Wall({ session }: { session: Session }) {
   const name = (user.user_metadata?.display_name as string | undefined)?.trim() || user.email?.split('@')[0] || 'Anónimo'
   const online = useOnlineCount(user.id, name)
   const { ideas, loading, error, addIdea, updateIdea, deleteIdea } = useIdeas()
-  const { countFor, likedByMe, toggleLike } = useLikes(user.id)
+  const { countFor, reactedByMe, toggle } = useLikes(user.id)
 
   return (
     <>
@@ -45,9 +45,9 @@ export function Wall({ session }: { session: Session }) {
                 key={idea.id}
                 idea={idea}
                 isMine={idea.user_id === user.id}
-                likes={countFor(idea.id)}
-                liked={likedByMe(idea.id)}
-                onToggleLike={() => toggleLike(idea.id)}
+                countFor={(r) => countFor(idea.id, r)}
+                reactedByMe={(r) => reactedByMe(idea.id, r)}
+                onToggle={(r) => toggle(idea.id, r)}
                 onUpdate={updateIdea}
                 onDelete={deleteIdea}
               />

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { MAX_LENGTH, type Idea } from '../lib/supabase'
+import type { Reaction } from '../hooks/useLikes'
 
 function timeAgo(iso: string) {
   const seconds = Math.round((Date.now() - new Date(iso).getTime()) / 1000)
@@ -13,14 +14,19 @@ function timeAgo(iso: string) {
 type Props = {
   idea: Idea
   isMine: boolean
-  likes: number
-  liked: boolean
-  onToggleLike: () => void
+  countFor: (reaction: Reaction) => number
+  reactedByMe: (reaction: Reaction) => boolean
+  onToggle: (reaction: Reaction) => void
   onUpdate: (id: number, content: string) => Promise<void>
   onDelete: (id: number) => Promise<void>
 }
 
-export function IdeaCard({ idea, isMine, likes, liked, onToggleLike, onUpdate, onDelete }: Props) {
+const REACTIONS: { key: Reaction; emoji: string; label: string }[] = [
+  { key: 'love', emoji: '❤️', label: 'Me encanta' },
+  { key: 'like', emoji: '👍', label: 'Like' },
+]
+
+export function IdeaCard({ idea, isMine, countFor, reactedByMe, onToggle, onUpdate, onDelete }: Props) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(idea.content)
   const [busy, setBusy] = useState(false)
@@ -86,15 +92,25 @@ export function IdeaCard({ idea, isMine, likes, liked, onToggleLike, onUpdate, o
 
       {!editing && (
         <div className="actions">
-          <button
-            className={`like ${liked ? 'liked' : ''}`}
-            onClick={onToggleLike}
-            aria-pressed={liked}
-            title={liked ? 'Quitar me encanta' : 'Me encanta'}
-          >
-            <span aria-hidden>{liked ? '❤️' : '🤍'}</span> Me encanta
-            {likes > 0 && <span className="like-count">{likes}</span>}
-          </button>
+          <div className="reactions">
+            {REACTIONS.map(({ key, emoji, label }) => {
+              const active = reactedByMe(key)
+              const count = countFor(key)
+              return (
+                <button
+                  key={key}
+                  className={`reaction ${active ? 'active' : ''}`}
+                  onClick={() => onToggle(key)}
+                  aria-pressed={active}
+                  aria-label={`${label}${count ? ` (${count})` : ''}`}
+                  title={active ? `Quitar ${label.toLowerCase()}` : label}
+                >
+                  <span aria-hidden>{emoji}</span>
+                  {count > 0 && <span className="reaction-count">{count}</span>}
+                </button>
+              )
+            })}
+          </div>
           {isMine && (
             <>
               <button onClick={() => { setDraft(idea.content); setEditing(true) }} disabled={busy}>Editar</button>
