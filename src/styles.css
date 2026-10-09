@@ -158,6 +158,19 @@ input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--acc
 .idea > .actions { margin-top: 10px; }
 .actions { display: flex; gap: 8px; }
 .actions button { padding: 5px 12px; font-size: 0.85rem; }
+.actions .like { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; }
+.actions .like.liked { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.like-count {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--border);
+  color: var(--text);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.like.liked .like-count { background: var(--accent); color: var(--accent-text); }
 
 @media (max-width: 520px) {
   .brand-name, .me-name { display: none; }
