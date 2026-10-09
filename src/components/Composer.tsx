@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from 'react'
-import { MAX_LENGTH } from '../lib/supabase'
+import { MAX_LENGTH, NOTE_COLORS, type NoteColor } from '../lib/supabase'
 
-export function IdeaForm({ onSubmit }: { onSubmit: (content: string) => Promise<void> }) {
+// Barra flotante para escribir una idea nueva y elegir su color.
+export function Composer({ onSubmit }: { onSubmit: (content: string, color: NoteColor) => Promise<void> }) {
   const [text, setText] = useState('')
+  const [color, setColor] = useState<NoteColor>('amarillo')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -15,7 +17,7 @@ export function IdeaForm({ onSubmit }: { onSubmit: (content: string) => Promise<
     setBusy(true)
     setError(null)
     try {
-      await onSubmit(text.trim())
+      await onSubmit(text.trim(), color)
       setText('')
     } catch {
       setError('No se pudo publicar. Revisa tu conexión e intenta otra vez.')
@@ -24,7 +26,7 @@ export function IdeaForm({ onSubmit }: { onSubmit: (content: string) => Promise<
   }
 
   return (
-    <form className="idea-form" onSubmit={handleSubmit}>
+    <form className="composer" onSubmit={handleSubmit}>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -32,10 +34,24 @@ export function IdeaForm({ onSubmit }: { onSubmit: (content: string) => Promise<
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit(e)
         }}
         placeholder="¿Qué idea tienes hoy?"
-        rows={3}
+        rows={2}
         aria-label="Escribe tu idea"
       />
       <div className="form-row">
+        <div className="swatches" role="group" aria-label="Color de tu nota">
+          {NOTE_COLORS.map((c) => (
+            <button
+              type="button"
+              key={c}
+              className={`swatch ${c === color ? 'on' : ''}`}
+              data-color={c}
+              title={c}
+              aria-label={`Color ${c}`}
+              aria-pressed={c === color}
+              onClick={() => setColor(c)}
+            />
+          ))}
+        </div>
         <span className={`counter ${tooLong ? 'over' : text.length > MAX_LENGTH - 20 ? 'near' : ''}`}>
           {text.length}/{MAX_LENGTH}
         </span>

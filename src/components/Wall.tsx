@@ -1,17 +1,30 @@
+import { useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
+import { supabase, type NoteColor } from '../lib/supabase'
 import { useIdeas } from '../hooks/useIdeas'
-import { useOnlineCount } from '../hooks/useOnlineCount'
 import { useLikes } from '../hooks/useLikes'
-import { IdeaForm } from './IdeaForm'
-import { IdeaCard } from './IdeaCard'
+import { useLiveCanvas } from '../hooks/useLiveCanvas'
+import { Canvas, type Pan } from './Canvas'
+import { Composer } from './Composer'
+
+const TOPBAR_HEIGHT = 57
+const NOTE_WIDTH = 240
 
 export function Wall({ session }: { session: Session }) {
   const user = session.user
   const name = (user.user_metadata?.display_name as string | undefined)?.trim() || user.email?.split('@')[0] || 'Anónimo'
-  const online = useOnlineCount(user.id, name)
-  const { ideas, loading, error, addIdea, updateIdea, deleteIdea } = useIdeas()
-  const { countFor, reactedByMe, toggle } = useLikes(user.id)
+  const [pan, setPan] = useState<Pan>({ x: 0, y: 0 })
+  const ideasApi = useIdeas()
+  const likes = useLikes(user.id)
+  const { online, cursors, sendCursor, sendMove } = useLiveCanvas(user.id, name, ideasApi.moveLocal)
+
+  // La nota nueva aparece en el centro de lo que estás viendo, con un poco de desorden.
+  async function publish(content: string, color: NoteColor) {
+    const jitter = () => (Math.random() - 0.5) * 120
+    const x = window.innerWidth / 2 - pan.x - NOTE_WIDTH / 2 + jitter()
+    const y = (window.innerHeight - TOPBAR_HEIGHT) / 2 - pan.y - 130 + jitter()
+    await ideasApi.addIdea(content, color, Math.round(x), Math.round(y))
+  }
 
   return (
     <>
@@ -30,31 +43,31 @@ export function Wall({ session }: { session: Session }) {
         </div>
       </header>
 
-      <main className="wall">
-        <IdeaForm onSubmit={addIdea} />
+      <Canvas
+        ideas={ideasApi.ideas}
+        userId={user.id}
+        pan={pan}
+        setPan={setPan}
+        cursors={cursors}
+        sendCursor={sendCursor}
+        sendMove={sendMove}
+        moveLocal={ideasApi.moveLocal}
+        dragging={ideasApi.dragging}
+        saveMove={ideasApi.saveMove}
+        setColor={ideasApi.setColor}
+        updateIdea={ideasApi.updateIdea}
+        deleteIdea={ideasApi.deleteIdea}
+        likes={likes}
+      />
 
-        {error && <p className="error" role="alert">No se pudieron cargar las ideas: {error}</p>}
-        {loading ? (
-          <p className="muted center">Cargando ideas…</p>
-        ) : ideas.length === 0 ? (
-          <p className="muted center empty">Todavía no hay ideas. ¡Sé la primera persona en publicar una!</p>
-        ) : (
-          <section className="ideas" aria-label="Ideas">
-            {ideas.map((idea) => (
-              <IdeaCard
-                key={idea.id}
-                idea={idea}
-                isMine={idea.user_id === user.id}
-                countFor={(r) => countFor(idea.id, r)}
-                reactedByMe={(r) => reactedByMe(idea.id, r)}
-                onToggle={(r) => toggle(idea.id, r)}
-                onUpdate={updateIdea}
-                onDelete={deleteIdea}
-              />
-            ))}
-          </section>
-        )}
-      </main>
+      {ideasApi.error && <p className="toast error" role="alert">{ideasApi.error}</p>}
+      {ideasApi.loading ? (
+        <p className="hint">Cargando ideas…</p>
+      ) : ideasApi.ideas.length === 0 ? (
+        <p className="hint">Todavía no hay ideas. ¡Publica la primera! Arrastra el fondo para moverte.</p>
+      ) : null}
+
+      <Composer onSubmit={publish} />
     </>
   )
 }
